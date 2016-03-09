@@ -9,14 +9,21 @@
                 to { color: #FFFFFF; }
             }
             .damagedblind {
-                animation: 0.5s damagedblind;
+                animation: 0.667s damagedblind;
             }
             @keyframes damagednewpoop {
                 from { color: #BE2633; }
                 to { color: #A46422; }
             }
             .damagednewpoop {
-                animation: 0.5s damagednewpoop;
+                animation: 0.667s damagednewpoop;
+            }
+            @keyframes damagedslimegreen {
+                from { color: #BE2633; }
+                to { color: #A3CE27; }
+            }
+            .damagedslimegreen {
+                animation: 0.667s damagedslimegreen;
             }
             body {
                 background: #1B2632;
@@ -62,10 +69,28 @@
             .pointer {
                 cursor: pointer;
             }
+            #help {
+                position: absolute;
+                top: 0;
+                right: 0;
+                bottom: 0;
+                left: 0;
+                background: #1B2632;
+                color: white;
+                white-space: pre-wrap;
+                display: none;
+            }
+            #buffer:hover {
+                color: white;
+            }
         </style>
     </head>
     <body>
-        <div id="game"><div id="buffer" class="age0">Press <span id="helpbutton" class="pointer">[?]</span> for help.</div><div id="display"></div><div id="stats">Health: 12/12</div></div>
+        <div id="game"><div id="buffer" class="age0">Press <span id="helpbutton" class="pointer">[?]</span> for help.</div><div id="display"></div><div id="stats">Health: <span id="hp">12</span>/12  Discoveries:  0/20</div><div id="help">Controls
+
+Arrow keys or numpad to move. You can hold down two arrow keys at once to move diagonally. Numlock needs to be off. 
+
+Press Escape or [?] to return to the game.</div></div>
         <script src="rlt.js"></script>
         <script src="script.js"></script>
     </body>
