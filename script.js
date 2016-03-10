@@ -160,6 +160,14 @@ var distance = function(dx, dy) {
 	return Math.max(dx, dy) + Math.min(dx, dy) / 2;
 };
 
+var visibleActorCount = function() {
+	var count = 0;
+	for (var x = 0; x < display.width; x++) for (var y = 0; y < display.height; y++) {
+		if (level[x][y].actor && level[x][y].visible) count++;
+	}
+	return count;
+};
+
 var act = function() {
 	if (this.dead) {
 		return schedule.advance().act();
@@ -264,6 +272,29 @@ var batHaunt = function() {
 	}
 };
 
+var flee = function(x, y) {
+	var bestdx = 0;
+	var bestdy = 0;
+	var dist = distance(this.x-x, this.y-y);
+	for (var i = 0; i < 8; i++) {
+		var newx = this.x + rlt.dir8[i][0];
+		var newy = this.y + rlt.dir8[i][1];
+		var newDist = distance(newx-x, newy-y);
+		if (level[newx][newy].passable &&
+			!level[newx][newy].actor && newDist > dist) {
+			dist = newDist;
+			bestdx = rlt.dir8[i][0];
+			bestdy = rlt.dir8[i][1];
+		}
+	}
+	if (bestdx === 0 && bestdy === 0) {
+		bestdx = rlt.clamp(x-this.x, -1, 1);
+		bestdy = rlt.clamp(y-this.y, -1, 1);
+		return attack.call(this, level[this.x+bestdx][this.y+bestdy].actor);
+	}
+	return requestAnimationFrame(this.move.bind(this, bestdx, bestdy));
+}
+
 var attack = function(actor) {
 	if (this === player) {
 		log('You hit the ' + actor.name + '. ');
@@ -276,10 +307,12 @@ var attack = function(actor) {
 };
 
 var rangedAttack = function(actor) {
-	if (this === player) {
-		log('You shoot the ' + actor.name + '. ');
-	} else if (actor === player) {
-		log('The ' + this.name + ' shoots you. ');
+	if (distance(this.x-actor.x, this.y-actor.y) < 2) {
+		if (visibleActorCount() < 3) {
+			return attack.call(this, actor);
+		} else {
+			return this.flee(player.x, player.y);
+		}
 	}
 	var heuristic = Math.random();
 	var x = actor.x;
@@ -307,21 +340,40 @@ var rangedAttack = function(actor) {
 				displayTile(tempx, tempy).innerHTML = level[tempx][tempy].actor ?
 					level[tempx][tempy].actor.char :
 					level[tempx][tempy].char;
-				return callback();
+				displayTile(tempx, tempy).style.color = level[tempx][tempy].actor ?
+					colors[level[tempx][tempy].actor.color] :
+					colors[level[tempx][tempy].color];
+					return callback();
 			}
 			displayTile(tempx, tempy).innerHTML = level[tempx][tempy].actor ?
 				level[tempx][tempy].actor.char :
 				level[tempx][tempy].char;
+			displayTile(tempx, tempy).style.color = level[tempx][tempy].actor ?
+				colors[level[tempx][tempy].actor.color] :
+				colors[level[tempx][tempy].color];
 			i++;
 			tempx = Math.round(this.x + i * dx);
 			tempy = Math.round(this.y + i * dy);
 			displayTile(tempx, tempy).innerHTML = '*';
+			displayTile(tempx, tempy).style.color = colors['blind'];
 			setTimeout(step.bind(this, i), 60);
 		};
 		step.call(this, 0);
 	}.bind(this));
-	if (x === actor.x && y === actor.y)
+	if (x === actor.x && y === actor.y) {
 		actor.gainHp(-this.dmg);
+		if (this === player) {
+			log('You shoot the ' + actor.name + '. ');
+		} else if (actor === player) {
+			log('The ' + this.name + ' shoots you. ');
+		}
+	} else {
+		if (this === player) {
+			log('You miss the ' + actor.name + '. ');
+		} else if (actor === player) {
+			log('The ' + this.name + ' misses you. ');
+		}
+	}
 	schedule.add(this, this.delay);
 	return schedule.advance().act();
 };
@@ -493,6 +545,7 @@ var asActor = function(obj) {
 		haunt: haunt,
 		gainHp: gainHp,
 		die: die,
+		flee: flee,
 		hp: 2,
 		maxHp: 2,
 		dmg: 1,
@@ -509,6 +562,11 @@ var asActor = function(obj) {
 var animationQueue = [];
 var animate = function() {
 	return animationQueue[0] ? animationQueue.shift()(animate) : blank;
+};
+
+var canRun = function(dx, dy) {
+	var char = level[player.x+dx][player.y+dy].char;
+	return char === '#' || char === '+' || char === '/';
 };
 
 var player = asActor({
@@ -529,13 +587,53 @@ player.act = function() {
 			break blinded;
 		}
 		for (var x = 0; x < display.width; x++) for (var y = 0; y < display.height; y++) {
-			if (distance(this.x-x, this.y-y) > [8, 5, 3, 2, 1, 1, 1, 1][this.blinded.duration]) {
+			if (distance(this.x-x, this.y-y)-0.5 > [8, 5, 3, 2, 1, 1, 1, 1][this.blinded.duration]) {
 				level[x][y].visible = false;
 			}
 		}
 	}
 	draw();
 	animate();
+	running:if (this.running) {
+		if (visibleActorCount() > 1) {
+			console.log('IV');
+			this.running = false;
+			break running;
+		}
+		var dx = this.running.x;
+		var dy = this.running.y;
+		if (level[this.x+dx+dy][this.y+dy+dx].char === '#') {
+			return setTimeout(player.run.bind(this, dx+dy, dy+dx, dy, dx), 60);
+		} else if (level[this.x+dx-dy][this.y+dy-dx].char === '#') {
+			return setTimeout(player.run.bind(this, dx-dy, dy-dx, -dy, -dx), 60);
+		} else if (level[this.x+dx][this.y+dy].char === '#') {
+			return setTimeout(player.run.bind(this, dx, dy, dx, dy), 60);
+		} else if (level[this.x+dy][this.y+dx].char === '#') {
+			return setTimeout(player.run.bind(this, dy, dx, dy, dx), 60);
+		} else if (level[this.x-dy][this.y-dx].char === '#') {
+			return setTimeout(player.run.bind(this, -dy, -dx, -dy, -dx), 60);
+		} else {
+			this.running = false;
+		}
+	}
+};
+player.run = function(dx, dy, newdx, newdy) {
+	if (dx === 0 && dy === 0) {
+		this.running = false;
+		return;
+	}
+	if (typeof newdx === 'undefined') {
+		this.running = {
+			x: dx,
+			y: dy
+		};
+	} else {
+		this.running = {
+			x: newdx,
+			y: newdy
+		};
+	}
+	return this.move(dx, dy);
 };
 
 var monsters = {
@@ -546,7 +644,7 @@ var monsters = {
 		attack: rangedAttack,
 		hunting: rangedHunting,
 		distribution: function() {
-			return 1;
+			return Math.random() < 0.5;
 		}
 	}),
 	bat: asActor({ // haunt restricts player's fov
@@ -557,7 +655,7 @@ var monsters = {
 		haunt: batHaunt,
 		description: 'A bat. Haunt: restricts vision for 6 turns. ',
 		distribution: function() {
-			return 0;
+			return Math.random() < 0.5;
 		}
 	}),
 	giant: asActor({
@@ -570,7 +668,7 @@ var monsters = {
 		delay: 200,
 		description: 'A giant. When it dies, you gain 6 health. ',
 		distribution: function() {
-			return 0;
+			return Math.random() < 0.5;
 		},
 		die: function() {
 			player.gainHp(6);
@@ -860,31 +958,31 @@ var inputState = {
 };
 var directionPressed = function(mode, key, callback) {
     'use strict';
-    if (key === '1') {
+    if (key === '1' || key === '!') {
         callback.call(player, -1, 1);
     }
-    else if (key === '2') {
+    else if (key === '2' || key === '@') {
         callback.call(player, 0, 1);
     }
-    else if (key === '3') {
+    else if (key === '3' || key === '#') {
         callback.call(player, 1, 1);
     }
-    else if (key === '4') {
+    else if (key === '4' || key === '$') {
         callback.call(player, -1, 0);
     }
-    else if (key === '5') {
+    else if (key === '5' || key === '%' || key === 'z') {
         callback.call(player, 0, 0);
     }
-    else if (key === '6') {
+    else if (key === '6' || key === '^') {
         callback.call(player, 1, 0);
     }
-    else if (key === '7') {
+    else if (key === '7' || key === '&') {
         callback.call(player, -1, -1);
     }
-    else if (key === '8') {
+    else if (key === '8' || key === '*') {
         callback.call(player, 0, -1);
     }
-    else if (key === '9') {
+    else if (key === '9' || key === '(') {
         callback.call(player, 1, -1);
     }
 
@@ -972,22 +1070,31 @@ var directionReleased = function(mode, key, callback) {
         mode.movedDiagonally = false;
     }
 };
-window.addEventListener('keydown', function(e) {
+var gameKeydown = function(e) {
 	try {
 		var key = keyCodes[e.keyCode] || e.key;
-		directionPressed(inputState, key, player.move);
+		var move = e.shiftKey ? player.run : player.move;
+		directionPressed(inputState, key, move);
 	} catch (ex) {
 		console.log(ex);
 	}
-}, false);
-window.addEventListener('keyup', function(e) {
+};
+var gameKeyup = function(e) {
 	try {
 		var key = keyCodes[e.keyCode] || e.key;
-		directionReleased(inputState, key, player.move);
+		var move = e.shiftKey ? player.run : player.move;
+		directionReleased(inputState, key, move);
 	} catch (ex) {
 		console.log(ex);
 	}
-}, false);
+};
+var titleKeydown = function() {
+	getById('title').style.display = 'none';
+	window.removeEventListener('keydown', titleKeydown, false);
+	window.addEventListener('keydown', gameKeydown, false);
+	window.addEventListener('keyup', gameKeyup, false);
+};
+window.addEventListener('keydown', titleKeydown, false);
 
 // descriptions
 var mouseenter = function(x, y, e) {
