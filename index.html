@@ -28,6 +28,12 @@
             body {
                 background: #1B2632;
                 margin: 0;
+                -webkit-touch-callout: none;
+                -webkit-user-select: none;
+                -khtml-user-select: none;
+                -moz-user-select: none;
+                -ms-user-select: none;
+                user-select: none;
             }
             #game {
                 position: absolute;
@@ -69,7 +75,7 @@
             .pointer {
                 cursor: pointer;
             }
-            #help {
+            #help, #title {
                 position: absolute;
                 top: 0;
                 right: 0;
@@ -77,8 +83,10 @@
                 left: 0;
                 background: #1B2632;
                 color: white;
-                white-space: pre-wrap;
+            }
+            #help {
                 display: none;
+                white-space: pre-wrap;
             }
             #buffer:hover {
                 color: white;
@@ -86,12 +94,30 @@
         </style>
     </head>
     <body>
-        <div id="game"><div id="buffer" class="age0">Press <span id="helpbutton" class="pointer">[?]</span> for help.</div><div id="display"></div><div id="stats">Health: <span id="hp">12</span>/12  Discoveries:  0/20</div><div id="help">Controls
+        <div id="game"><div id="title">Seek and you shall find
+
+
+          Dreams filled with fantastical creatures
+          and endless passageways.
+
+          Monsters lie in wait before you,
+          and haunt you from behind. 
+
+          Despite this, a morbid curiosity
+          drives you to explore this maze. 
+
+          Death only brings wakefulness,
+          but success will reveal the key to your mind.
+
+
+                                       Press any key to play
+(url?k=key)
+        </div><div id="buffer" class="age0">Press <span id="helpbutton" class="pointer">[?]</span> for help.</div><div id="display"></div><div id="stats">Health: <span id="hp">12</span>/12  Discoveries:  0/20</div><div id="help">Controls
 
 Arrow keys or numpad to move. You can hold down two arrow keys at once to move diagonally. Numlock needs to be off. 
 
 Press Escape or [?] to return to the game.</div></div>
-        <script src="rlt.js"></script>
+        <script src="rlt.min.js"></script>
         <script src="script.js"></script>
     </body>
 </html>

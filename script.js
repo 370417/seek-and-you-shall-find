@@ -213,6 +213,31 @@ var hunting = function() {
 	return this.move(mx, my);
 };
 
+var batHunting = function() {
+	if (Math.random() < 0.5)
+		return hunting.call(this);
+	if (level[this.x][this.y].visible) {
+		this.goal = {
+			x: player.x,
+			y: player.y
+		};
+	}
+	var mx = 0, my = 0;
+	var dist = 1;
+	for (var i = 0; i < 8; i++) {
+		var dx = rlt.dir8[i][0];
+		var dy = rlt.dir8[i][1];
+		var newdist = Math.random();
+		var tile = level[this.x+dx][this.y+dy];
+		if (tile.passable && (!tile.actor || tile.actor === player) && newdist < dist) {
+			dist = newdist;
+			mx = dx;
+			my = dy;
+		}
+	}
+	return this.move(mx, my);
+};
+
 var rangedHunting = function() {
 	if (level[this.x][this.y].visible) {
 		this.goal = {
@@ -238,7 +263,7 @@ var rangedHunting = function() {
 	}
 };
 
-var batHunting = function() {
+var drunkHunting = function() {
 	var mx = 0, my = 0;
 	var dist = Infinity;
 	for (var i = 0; i < 9; i++) {
@@ -418,37 +443,6 @@ var move = function(dx, dy) {
 	}
 };
 
-var playerMove = function(dx, dy) {
-	if (dx === 0 && dy === 0) {
-		schedule.add(this, this.delay);
-		return schedule.advance().act();
-	} else if (level[this.x+dx][this.y+dy].actor) {
-		return this.attack(level[this.x+dx][this.y+dy].actor);
-	} else if (level[this.x+dx][this.y+dy].passable) {
-		level[this.x][this.y].actor = undefined;
-		if (level[this.x][this.y].char === '+' ||
-			level[this.x][this.y].char === '/') {
-			this.exitDoor(dx, dy);
-		}
-		this.x += dx;
-		this.y += dy;
-		level[this.x][this.y].actor = this;
-		if (level[this.x][this.y].char === '+') {
-			this.enterDoor();
-		}
-		for (var x = 0; x < display.width; x++) for (var y = 0; y < display.height; y++) {
-			level[x][y].visible = false;
-		}
-		rlt.shadowcast(player.x, player.y, function(x, y) {
-			return level[x][y].transparent;
-		}, function(x, y) {
-			level[x][y].visible = true;
-		});
-		schedule.add(this, this.delay);
-		return schedule.advance().act();
-	}
-};
-
 var die = function() {
 	this.dead = true;
 	level[this.x][this.y].actor = undefined;
@@ -504,20 +498,20 @@ var enterCorridor = function() {
 		right: 'horizontal'
 	};
 	// make a new room and add monsters
-	var width = rlt.random(6, 9);
-	var height = rlt.random(6, 9);
+	var width = rlt.random(6, 9, Math.random);
+	var height = rlt.random(6, 9, Math.random);
 	if (facing === 'bottom') {
-		var xpos = rlt.random(0, display.width-width);
-		var ypos = rlt.random(this.y+2, display.height-height);
+		var xpos = rlt.random(0, display.width-width, Math.random);
+		var ypos = rlt.random(this.y+2, display.height-height, Math.random);
 	} else if (facing === 'top') {
-		var xpos = rlt.random(0, display.width-width);
-		var ypos = rlt.random(0, this.y-height-1);
+		var xpos = rlt.random(0, display.width-width, Math.random);
+		var ypos = rlt.random(0, this.y-height-1, Math.random);
 	} else if (facing === 'right') {
-		var xpos = rlt.random(this.x+2, display.width-width);
-		var ypos = rlt.random(0, display.height-height);
+		var xpos = rlt.random(this.x+2, display.width-width, Math.random);
+		var ypos = rlt.random(0, display.height-height, Math.random);
 	} else {
-		var xpos = rlt.random(0, this.x-width-1);
-		var ypos = rlt.random(0, display.height-height);
+		var xpos = rlt.random(0, this.x-width-1, Math.random);
+		var ypos = rlt.random(0, display.height-height, Math.random);
 	}
 	addMonsters(makeRoom(xpos, ypos, width, height));
 	// add doors
@@ -575,7 +569,6 @@ var player = asActor({
 	exitDoor: exitDoor,
 	hp: 12,
 	maxHp: 12,
-	move: playerMove,
 	description: 'This is you!'
 });
 player.act = function() {
@@ -596,25 +589,61 @@ player.act = function() {
 	animate();
 	running:if (this.running) {
 		if (visibleActorCount() > 1) {
-			console.log('IV');
 			this.running = false;
 			break running;
 		}
 		var dx = this.running.x;
 		var dy = this.running.y;
-		if (level[this.x+dx+dy][this.y+dy+dx].char === '#') {
+		if (canRun(dx+dy, dy+dx)) {
 			return setTimeout(player.run.bind(this, dx+dy, dy+dx, dy, dx), 60);
-		} else if (level[this.x+dx-dy][this.y+dy-dx].char === '#') {
+		} else if (canRun(dx-dy, dy-dx)) {
 			return setTimeout(player.run.bind(this, dx-dy, dy-dx, -dy, -dx), 60);
-		} else if (level[this.x+dx][this.y+dy].char === '#') {
+		} else if (canRun(dx, dy)) {
 			return setTimeout(player.run.bind(this, dx, dy, dx, dy), 60);
-		} else if (level[this.x+dy][this.y+dx].char === '#') {
+		} else if (canRun(dy, dx)) {
 			return setTimeout(player.run.bind(this, dy, dx, dy, dx), 60);
-		} else if (level[this.x-dy][this.y-dx].char === '#') {
+		} else if (canRun(dy, -dx)) {
 			return setTimeout(player.run.bind(this, -dy, -dx, -dy, -dx), 60);
 		} else {
 			this.running = false;
 		}
+	}
+	asleep:if (this.asleep && this.asleep > 0) {
+		if (visibleActorCount() > 1) {
+			this.alseep = 0;
+			break asleep;
+		}
+		requestAnimationFrame(this.sleep.bind(this, false));
+	}
+};
+player.move = function(dx, dy) {
+	if (dx === 0 && dy === 0) {
+		schedule.add(this, this.delay);
+		return schedule.advance().act();
+	} else if (level[this.x+dx][this.y+dy].actor) {
+		return this.attack(level[this.x+dx][this.y+dy].actor);
+	} else if (level[this.x+dx][this.y+dy].passable) {
+		level[this.x][this.y].actor = undefined;
+		if (level[this.x][this.y].char === '+' ||
+			level[this.x][this.y].char === '/') {
+			this.exitDoor(dx, dy);
+		}
+		this.x += dx;
+		this.y += dy;
+		level[this.x][this.y].actor = this;
+		if (level[this.x][this.y].char === '+') {
+			this.enterDoor();
+		}
+		for (var x = 0; x < display.width; x++) for (var y = 0; y < display.height; y++) {
+			level[x][y].visible = false;
+		}
+		rlt.shadowcast(player.x, player.y, function(x, y) {
+			return level[x][y].transparent;
+		}, function(x, y) {
+			level[x][y].visible = true;
+		});
+		schedule.add(this, this.delay);
+		return schedule.advance().act();
 	}
 };
 player.run = function(dx, dy, newdx, newdy) {
@@ -634,6 +663,12 @@ player.run = function(dx, dy, newdx, newdy) {
 		};
 	}
 	return this.move(dx, dy);
+};
+player.sleep = function(fallAsleep) {
+	this.asleep = fallAsleep ? 60 : this.asleep;
+	this.asleep--;
+	schedule.add(this, this.delay);
+	return schedule.advance().act();
 };
 
 var monsters = {
@@ -687,6 +722,11 @@ var monsters = {
 		delay: 200
 	})
 };
+var discoveries = [
+	'bat',
+	'giant',
+	'archer'
+];
 
 // maps from character to sprite location
 var char2spriteX = {
@@ -780,7 +820,7 @@ var makeCorridor = function(a, b, type) {
 		var temp = a;
 		a = a.y < b.y ? a : b;
 		b = temp.y >= b.y ? temp : b;
-		var ymid = rlt.random(a.y+1, b.y-1);
+		var ymid = rlt.random(a.y+1, b.y-1, Math.random);
 		for (var y = a.y+1; y < ymid; y++) {
 			level[a.x][y] = newTile('corridor');
 		}
@@ -796,7 +836,7 @@ var makeCorridor = function(a, b, type) {
 		var temp = a;
 		a = a.x < b.x ? a : b;
 		b = temp.x >= b.x ? temp : b;
-		var xmid = rlt.random(a.x+1, b.x-1);
+		var xmid = rlt.random(a.x+1, b.x-1, Math.random);
 		for (var x = a.x+1; x < xmid; x++) {
 			level[x][a.y] = newTile('corridor');
 		}
@@ -861,8 +901,8 @@ var addMonsters = function(room) {
 			var x = 0;
 			var y = 0;
 			while (!level[x][y].passable || level[x][y].actor) {
-				x = rlt.random(room.x+1, room.x+room.w-1);
-				y = rlt.random(room.y+1, room.y+room.h-1);
+				x = rlt.random(room.x+1, room.x+room.w-1, Math.random);
+				y = rlt.random(room.y+1, room.y+room.h-1, Math.random);
 			}
 			var monster = Object.create(monsters[name]);
 			monster.x = x;
@@ -887,8 +927,8 @@ var start = function() {
 		left: 1
 	});
 
-	player.x = rlt.random(27, 31);
-	player.y = rlt.random(12, 16);
+	player.x = rlt.random(27, 31, Math.random);
+	player.y = rlt.random(12, 16, Math.random);
 	level[player.x][player.y].actor = player;
 
 	for (var x = 0; x < display.width; x++) for (var y = 0; y < display.height; y++) {
@@ -1072,8 +1112,14 @@ var directionReleased = function(mode, key, callback) {
 };
 var gameKeydown = function(e) {
 	try {
+		player.asleep = 0;
 		var key = keyCodes[e.keyCode] || e.key;
 		var move = e.shiftKey ? player.run : player.move;
+		if (key === '%' || key === 'Z' ||
+			e.shiftKey && key === '5' ||
+			e.shiftKey && key === 'z') {
+			move = player.sleep.bind(player, true);
+		}
 		directionPressed(inputState, key, move);
 	} catch (ex) {
 		console.log(ex);
