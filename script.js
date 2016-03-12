@@ -6,6 +6,7 @@ var getById = document.getElementById.bind(document);
 var buffer = getById('buffer');
 var bufferText;
 var bufferClass;
+buffer.style.height = buffer.clientHeight + 'px';
 var log = function(str) {
 	if (!str) {
 		buffer.setAttribute('class', {
@@ -27,6 +28,10 @@ var log = function(str) {
 var tempLog = function(str) {
 	buffer.innerHTML = str;
 	buffer.setAttribute('class', 'age0');
+};
+var lateLog = function(str) {
+	buffer.innerHTML += str;
+	bufferText = buffer.innerHTML;
 };
 var revertLog = function() {
 	buffer.innerHTML = bufferText;
@@ -263,15 +268,45 @@ var rangedHunting = function() {
 	}
 };
 
-var drunkHunting = function() {
+var lateHunting = function() {
+	if (level[this.x][this.y].visible) {
+		this.goal = {
+			x: player.lastx,
+			y: player.lasty
+		};
+	}
 	var mx = 0, my = 0;
-	var dist = Infinity;
-	for (var i = 0; i < 9; i++) {
-		var dx = rlt.dir9[i][0];
-		var dy = rlt.dir9[i][1];
-		var newdist = distance(this.x+dx-player.x, this.y+dy-player.y);
+	var dist = distance(this.x-this.goal.x, this.y-this.goal.y);
+	for (var i = 0; i < 8; i++) {
+		var dx = rlt.dir8[i][0];
+		var dy = rlt.dir8[i][1];
+		var newdist = distance(this.x+dx-this.goal.x, this.y+dy-this.goal.y);
 		var tile = level[this.x+dx][this.y+dy];
-		if (tile.passable && (!tile.actor || tile.actor === player || tile.actor === this) && newdist + 2 * Math.random() < dist) {
+		if (tile.passable && (!tile.actor || tile.actor === player) && newdist < dist) {
+			dist = newdist;
+			mx = dx;
+			my = dy;
+		}
+	}
+	return this.move(mx, my);
+}
+
+var drunkHunting = function() {
+	if (level[this.x][this.y].visible) {
+		this.goal = {
+			x: player.x,
+			y: player.y
+		};
+	}
+	var mx = 0, my = 0;
+	var dist = distance(this.x-this.goal.x, this.y-this.goal.y)+3*Math.random();
+	for (var i = 0; i < 8; i++) {
+		var dx = rlt.dir8[i][0];
+		var dy = rlt.dir8[i][1];
+		var newdist = distance(this.x+dx-this.goal.x, this.y+dy-this.goal.y);
+		var tile = level[this.x+dx][this.y+dy];
+		if (tile.passable && (!tile.actor || tile.actor === player) &&
+			newdist + 3 * Math.random() < dist) {
 			dist = newdist;
 			mx = dx;
 			my = dy;
@@ -289,11 +324,12 @@ var batHaunt = function() {
 	this.dead = true;
 	level[this.x][this.y].actor = undefined;
 	if (player.blinded) {
-		player.blinded.duration = 8;
+		player.blinded.duration = 6;
 	} else {
 		player.blinded = {
-			duration: 8
+			duration: 6
 		};
+		getById('blinded').style.display = 'block';
 	}
 };
 
@@ -321,12 +357,12 @@ var flee = function(x, y) {
 }
 
 var attack = function(actor) {
+	var type = actor.gainHp(-this.dmg);
 	if (this === player) {
-		log('You hit the ' + actor.name + '. ');
+		log('You ' + type + ' the ' + actor.name + '. ');
 	} else if (actor === player) {
-		log('The ' + this.name + ' hits you. ');
+		log('The ' + this.name + ' ' + type + 's you. ');
 	}
-	actor.gainHp(-this.dmg);
 	schedule.add(this, this.delay);
 	return schedule.advance().act();
 };
@@ -362,20 +398,28 @@ var rangedAttack = function(actor) {
 			var tempx = Math.round(this.x + i * dx);
 			var tempy = Math.round(this.y + i * dy);
 			if (i === major) {
+				if (level[tempx][tempy].visible) {
+					displayTile(tempx, tempy).innerHTML = level[tempx][tempy].actor ?
+						level[tempx][tempy].actor.char :
+						level[tempx][tempy].char;
+					displayTile(tempx, tempy).style.color = level[tempx][tempy].actor ?
+						colors[level[tempx][tempy].actor.color] :
+						colors[level[tempx][tempy].color];
+				} else {
+					displayTile(tempx, tempy).innerHTML = ' ';
+				}
+				return callback();
+			}
+			if (level[tempx][tempy].visible) {
 				displayTile(tempx, tempy).innerHTML = level[tempx][tempy].actor ?
 					level[tempx][tempy].actor.char :
 					level[tempx][tempy].char;
 				displayTile(tempx, tempy).style.color = level[tempx][tempy].actor ?
 					colors[level[tempx][tempy].actor.color] :
 					colors[level[tempx][tempy].color];
-					return callback();
+			} else {
+				displayTile(tempx, tempy).innerHTML = ' ';
 			}
-			displayTile(tempx, tempy).innerHTML = level[tempx][tempy].actor ?
-				level[tempx][tempy].actor.char :
-				level[tempx][tempy].char;
-			displayTile(tempx, tempy).style.color = level[tempx][tempy].actor ?
-				colors[level[tempx][tempy].actor.color] :
-				colors[level[tempx][tempy].color];
 			i++;
 			tempx = Math.round(this.x + i * dx);
 			tempy = Math.round(this.y + i * dy);
@@ -386,11 +430,11 @@ var rangedAttack = function(actor) {
 		step.call(this, 0);
 	}.bind(this));
 	if (x === actor.x && y === actor.y) {
-		actor.gainHp(-this.dmg);
+		var type = actor.gainHp(-this.dmg).replace('hit', 'shoot');
 		if (this === player) {
-			log('You shoot the ' + actor.name + '. ');
+			log('You ' + type + ' the ' + actor.name + '. ');
 		} else if (actor === player) {
-			log('The ' + this.name + ' shoots you. ');
+			log('The ' + this.name + ' ' + type + 's you. ');
 		}
 	} else {
 		if (this === player) {
@@ -404,6 +448,7 @@ var rangedAttack = function(actor) {
 };
 
 var gainHp = function(hp) {
+	var type = 'hit';
 	this.hp += hp;
 	if (hp < 0 && this.hp > 0) {
 		animationQueue.push(function(callback) {
@@ -419,12 +464,14 @@ var gainHp = function(hp) {
 	if (this.hp <= 0) {
 		this.hp = 0;
 		this.die();
+		type = 'kill';
 	}
 	if (this === player) {
 		var hpStr = '' + this.hp;
 		if (hpStr.length === 1) hpStr = ' ' + hpStr;
 		getById('hp').innerHTML = hpStr;
 	}
+	return type;
 };
 
 var move = function(dx, dy) {
@@ -452,28 +499,36 @@ var exitDoor = function(dx, dy) {
 	var room = level[this.x][this.y].room;
 	if (level[this.x+dx][this.y+dy].char === '#') {
 		level[this.x][this.y] = newTile('openDoor');
-		this.enterDoor = blank;
+		level[this.x][this.y].room = room;
+		this.enterDoor = enterRoom;
 	} else {
 		level[this.x][this.y] = newTile('door');
+		level[this.x][this.y].room = room;
 		this.enterDoor = enterCorridor;
+		// destroy past stuff
+		var oldCurrentRoom;
+		for (var x = 0; x < display.width; x++) for (var y = 0; y < display.height; y++) {
+			if (level[x][y].room !== room) {
+				if (level[x][y].actor)
+					level[x][y].actor.haunt();
+				if (level[x][y].room === currentRoom)
+					currentRoom = room;
+				level[x][y] = newTile('empty');
+			}
+		}
+		if (currentRoom !== oldCurrentRoom) {
+			progress++;
+			getById('progress').innerHTML = progress;
+		}
 	}
-	level[this.x][this.y].room = room;
+};
+
+var enterRoom = function() {
+	addMonsters(level[this.x][this.y].room);
 };
 
 var enterCorridor = function() {
 	var thisRoom = level[this.x][this.y].room;
-	// destroy all monsters outside
-	for (x = 0; x < display.width; x++) for (var y = 0; y < display.height; y++) {
-		if (level[x][y].room !== thisRoom && level[x][y].actor) {
-			level[x][y].actor.haunt();
-		}
-	}
-	// destroy all other rooms
-	for (x = 0; x < display.width; x++) for (var y = 0; y < display.height; y++) {
-		if (level[x][y].room !== thisRoom) {
-			level[x][y] = newTile('empty');
-		}
-	}
 	// find facing
 	var facing;
 	if (level[this.x-1][this.y].char === '.') {
@@ -513,7 +568,7 @@ var enterCorridor = function() {
 		var xpos = rlt.random(0, this.x-width-1, Math.random);
 		var ypos = rlt.random(0, display.height-height, Math.random);
 	}
-	addMonsters(makeRoom(xpos, ypos, width, height));
+	makeRoom(xpos, ypos, width, height);
 	// add doors
 	var chance = {};
 	if (xpos > 10) chance.left = 2/3;
@@ -543,8 +598,9 @@ var asActor = function(obj) {
 		hp: 2,
 		maxHp: 2,
 		dmg: 1,
+		chance: 0,
 		distribution: function() {
-			return 0;
+			return Math.random() < this.chance;
 		}
 	});
 	for (var prop in obj) {
@@ -577,10 +633,12 @@ player.act = function() {
 		this.blinded.duration--;
 		if (this.blinded.duration < 0) {
 			this.blinded = undefined;
+			getById('blinded').style.display = 'none';
 			break blinded;
 		}
 		for (var x = 0; x < display.width; x++) for (var y = 0; y < display.height; y++) {
-			if (distance(this.x-x, this.y-y)-0.5 > [8, 5, 3, 2, 1, 1, 1, 1][this.blinded.duration]) {
+			if (distance(this.x-x, this.y-y)-0.5 >
+				[8, 5, 3, 2, 1, 1, 1, 1][this.blinded.duration]) {
 				level[x][y].visible = false;
 			}
 		}
@@ -616,11 +674,25 @@ player.act = function() {
 		requestAnimationFrame(this.sleep.bind(this, false));
 	}
 };
+player.see = function() {
+	for (var x = 0; x < display.width; x++) for (var y = 0; y < display.height; y++) {
+		level[x][y].visible = false;
+	}
+	rlt.shadowcast(player.x, player.y, function(x, y) {
+		return level[x][y].transparent;
+	}, function(x, y) {
+		level[x][y].visible = true;
+	});
+}
 player.move = function(dx, dy) {
+	this.lastx = this.x;
+	this.lasty = this.y;
 	if (dx === 0 && dy === 0) {
+		this.see();
 		schedule.add(this, this.delay);
 		return schedule.advance().act();
 	} else if (level[this.x+dx][this.y+dy].actor) {
+		this.see();
 		return this.attack(level[this.x+dx][this.y+dy].actor);
 	} else if (level[this.x+dx][this.y+dy].passable) {
 		level[this.x][this.y].actor = undefined;
@@ -634,14 +706,7 @@ player.move = function(dx, dy) {
 		if (level[this.x][this.y].char === '+') {
 			this.enterDoor();
 		}
-		for (var x = 0; x < display.width; x++) for (var y = 0; y < display.height; y++) {
-			level[x][y].visible = false;
-		}
-		rlt.shadowcast(player.x, player.y, function(x, y) {
-			return level[x][y].transparent;
-		}, function(x, y) {
-			level[x][y].visible = true;
-		});
+		this.see();
 		schedule.add(this, this.delay);
 		return schedule.advance().act();
 	}
@@ -667,8 +732,15 @@ player.run = function(dx, dy, newdx, newdy) {
 player.sleep = function(fallAsleep) {
 	this.asleep = fallAsleep ? 60 : this.asleep;
 	this.asleep--;
+	this.see();
 	schedule.add(this, this.delay);
 	return schedule.advance().act();
+};
+player.die = function() {
+	draw();
+	window.removeEventListener('keydown', gameKeydown);
+	window.removeEventListener('keyup', gameKeyup);
+	animationQueue.push(lateLog.bind(null, 'You die... '));
 };
 
 var monsters = {
@@ -678,9 +750,7 @@ var monsters = {
 		description: 'An archer that can shoot you from afar. ',
 		attack: rangedAttack,
 		hunting: rangedHunting,
-		distribution: function() {
-			return Math.random() < 0.5;
-		}
+		chance: 0.5
 	}),
 	bat: asActor({ // haunt restricts player's fov
 		name: 'bat',
@@ -689,9 +759,7 @@ var monsters = {
 		hunting: batHunting,
 		haunt: batHaunt,
 		description: 'A bat. Haunt: restricts vision for 6 turns. ',
-		distribution: function() {
-			return Math.random() < 0.5;
-		}
+		chance: 0.5
 	}),
 	giant: asActor({
 		name: 'giant',
@@ -702,9 +770,7 @@ var monsters = {
 		maxHp: 5,
 		delay: 200,
 		description: 'A giant. When it dies, you gain 6 health. ',
-		distribution: function() {
-			return Math.random() < 0.5;
-		},
+		chance: 0.5,
 		die: function() {
 			player.gainHp(6);
 			this.dead = true;
@@ -720,13 +786,37 @@ var monsters = {
 		name: 'worm',
 		char: 'W',
 		delay: 200
+	}),
+	ogre: asActor({
+		name: 'ogre',
+		char: 'O',
+		color: 'zornskin',
+		delay: 200,
+		dmg: 2,
+		hp: 5,
+		maxHp: 5,
+		hunting: lateHunting,
+		description: 'A ogre. It aims for the space you were in last turn. ',
+		chance: 0.5
+	}),
+	dwarf: asActor({
+		name: 'dwarf',
+		char: 'd',
+		hunting: drunkHunting,
+		description: 'A drunk dwarf. Haunt: you are confused. ',
+		chance: 1
 	})
 };
-var discoveries = [
+var undiscovered = [
 	'bat',
 	'giant',
-	'archer'
+	'archer',
+	'dwarf',
+	'ogre'
 ];
+var discovered = [];
+var currentRoom;
+var progress = 0;
 
 // maps from character to sprite location
 var char2spriteX = {
@@ -919,7 +1009,7 @@ var start = function() {
 		level[x][y] = newTile('empty');
 	}
 
-	makeRoom(26, 11, 7, 7);
+	currentRoom = makeRoom(26, 11, 7, 7);
 	addDoors(26, 11, 7, 7, {
 		top: 1,
 		right: 1,
@@ -931,14 +1021,7 @@ var start = function() {
 	player.y = rlt.random(12, 16, Math.random);
 	level[player.x][player.y].actor = player;
 
-	for (var x = 0; x < display.width; x++) for (var y = 0; y < display.height; y++) {
-		level[x][y].visible = false;
-	}
-	rlt.shadowcast(player.x, player.y, function(x, y) {
-		return level[x][y].transparent;
-	}, function(x, y) {
-		level[x][y].visible = true;
-	});
+	player.see();
 
 	schedule = rlt.Schedule();
 	schedule.add(player, 0);
@@ -1121,6 +1204,12 @@ var gameKeydown = function(e) {
 			move = player.sleep.bind(player, true);
 		}
 		directionPressed(inputState, key, move);
+		if (key === '?' || key === '/') {
+			getById('help').style.display = 'block';
+			window.removeEventListener('keydown', gameKeydown);
+			window.removeEventListener('keyup', gameKeyup);
+			window.addEventListener('keydown', helpKeydown, false);
+		}
 	} catch (ex) {
 		console.log(ex);
 	}
@@ -1134,9 +1223,24 @@ var gameKeyup = function(e) {
 		console.log(ex);
 	}
 };
+var helpKeydown = function(e) {
+	var key = keyCodes[e.keyCode] || e.key;
+	if (key === 'Escape' || key === '?' || key === '/') {
+		getById('help').style.display = 'none';
+		window.removeEventListener('keydown', helpKeydown);
+		window.addEventListener('keydown', gameKeydown, false);
+		window.addEventListener('keyup', gameKeyup, false);
+	}
+};
+var helpClick = function(e) {
+	getById('help').style.display = 'block';
+	window.removeEventListener('keydown', gameKeydown);
+	window.removeEventListener('keyup', gameKeyup);
+	window.addEventListener('keydown', helpKeydown, false);
+}
 var titleKeydown = function() {
 	getById('title').style.display = 'none';
-	window.removeEventListener('keydown', titleKeydown, false);
+	window.removeEventListener('keydown', titleKeydown);
 	window.addEventListener('keydown', gameKeydown, false);
 	window.addEventListener('keyup', gameKeyup, false);
 };
@@ -1160,5 +1264,11 @@ for (var y = 0; y < display.element.childNodes.length; y++) {
 		tile.addEventListener('mouseenter', mouseenter.bind(tile, x, y), false);
 	}
 }
+display.element.addEventListener('mouseleave', revertLog, false);
+
+getById('blinded').addEventListener('mouseenter', tempLog.bind(null, 'Your vision is limited because of a bat haunting you. '), false);
+getById('blinded').addEventListener('mouseleave', revertLog, false);
+getById('confused').addEventListener('mouseenter', tempLog.bind(null, 'Moving sends you in random directions. '), false);
+getById('confused').addEventListener('mouseleave', revertLog, false);
 
 start();

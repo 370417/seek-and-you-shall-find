@@ -25,6 +25,13 @@
             .damagedslimegreen {
                 animation: 0.667s damagedslimegreen;
             }
+            @keyframes damagedzornskin {
+                from { color: #BE2633; }
+                to { color: #A3CE27; }
+            }
+            .damagedzornskin {
+                animation: 0.667s damagedzornskin;
+            }
             body {
                 background: #1B2632;
                 margin: 0;
@@ -60,6 +67,18 @@
                 float: left;
                 color: #9D9D9D;
             }
+            #buffs {
+                float: right;
+            }
+            #blinded {
+                color: #FFFFFF;
+            }
+            .buff {
+                display: none;
+            }
+            #confused {
+                color: #F7E26B;
+            }
             .age0, .age1 {
                 color: white;
             }
@@ -88,6 +107,9 @@
                 display: none;
                 white-space: pre-wrap;
             }
+            #buffer {
+                white-space: normal;
+            }
             #buffer:hover {
                 color: white;
             }
@@ -112,7 +134,7 @@
 
                                        Press any key to play
 (url?k=key)
-        </div><div id="buffer" class="age0">Press <span id="helpbutton" class="pointer">[?]</span> for help.</div><div id="display"></div><div id="stats">Health: <span id="hp">12</span>/12  Discoveries:  0/20</div><div id="help">Controls
+        </div><div id="buffer" class="age0">Press <span id="helpbutton" class="pointer" onclick="helpClick()">[?]</span> for help.</div><div id="display"></div><div><div id="stats">Health: <span id="hp">12</span>/12  Progress: <span id="progress">0</span>/12</div><div id="buffs"><span id="blinded" class="buff"> Blinded</span><span id="confused" class="buff"> Confused</span></div></div><div id="help">Controls
 
 Arrow keys or numpad to move. You can hold down two arrow keys at once to move diagonally. Numlock needs to be off. 
 
