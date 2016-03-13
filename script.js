@@ -2,6 +2,89 @@
 
 var getById = document.getElementById.bind(document);
 
+// following function written by James Padolsey
+function getParameterByName(name) {
+    var match = RegExp('[?&]' + name + '=([^&]*)').exec(window.location.search);
+    return match && decodeURIComponent(match[1].replace(/\+/g, ' '));
+}
+var query = getParameterByName('s');
+if (query === null)
+	query = NaN;
+var seed = isNaN(query) ? Math.floor((1<<30)*Math.random()) : query;
+var prng = new MersenneTwister(seed);
+prng = prng.random.bind(prng);
+
+// generte title text
+var THIS = rlt.shuffle([
+	'amulet',
+	'best',
+	'orb',
+	'blanket',
+	'week',
+	'quest item',
+	'origin',
+	'blessing',
+	'heart',
+	'widget',
+	'book',
+	'kitchen sink',
+	'vision',
+	'irony',
+	'hall',
+	'melody',
+	'vestment',
+	'affirmation',
+	'narwhal',
+	'color',
+	'game',
+	'scroll',
+	'element',
+	'entropy',
+	'world',
+	'realm'
+], prng)[0];
+var THAT = rlt.shuffle([
+	'yendor',
+	'denory',
+	'eternal life',
+	'boring ideas',
+	'7 days',
+	'great value',
+	'the sea',
+	'kings',
+	'vitality',
+	'insight',
+	'endless plains',
+	'music',
+	'chance',
+	'irony',
+	'felicity',
+	'ten for got ten',
+	'positivity',
+	'the ' + THIS + ' shop',
+	'fast internet',
+	'motivation',
+	'grace',
+	'green traffic lights',
+	'wizardry',
+	THIS + 's',
+	'ascendance',
+	'riches',
+	'a hero long-forgotten',
+	'wonder',
+	'Rodney',
+	'"; game.increaseDifficulty();',
+	'yes!'
+], prng)[0];
+var $THISs = document.getElementsByClassName('this');
+for (var i = 0; i < $THISs.length; i++) {
+	$THISs[i].innerHTML = THIS;
+}
+var $THATs = document.getElementsByClassName('that');
+for (var i = 0; i < $THATs.length; i++) {
+	$THATs[i].innerHTML = THAT;
+}
+
 // message buffer
 var buffer = getById('buffer');
 var bufferText;
@@ -152,6 +235,34 @@ var tiles = {
 		passable: true,
 		transparent: true,
 		description: 'A narrow corridor. '
+	},
+	edge: {
+		char: ' ',
+		color: 'void',
+		passable: false,
+		transparent: false,
+		description: 'The edge of the world. '
+	},
+	grass: {
+		char: "'",
+		color: 'slimegreen',
+		passable: true,
+		transparent: true,
+		description: 'Grass. '
+	},
+	bush: {
+		char: '"',
+		color: 'leafgreen',
+		passable: true,
+		transparent: true,
+		description: 'A bush. '
+	},
+	tree: {
+		char: '♠',
+		color: 'leafgreen',
+		passable: false,
+		transparent: false,
+		description: 'A tree. '
 	}
 };
 
@@ -188,7 +299,14 @@ var sleeping = function() {
 			y: player.y
 		};
 		this.state = 'hunting';
-		return this.act();
+	}
+	schedule.add(this, this.delay);
+	return schedule.advance().act();
+};
+
+var moldSleeping = function() {
+	if (distance(this.x-player.x, this.y-player.y) < 2) {
+		return this.attack(player);
 	} else {
 		schedule.add(this, this.delay);
 		return schedule.advance().act();
@@ -219,7 +337,7 @@ var hunting = function() {
 };
 
 var batHunting = function() {
-	if (Math.random() < 0.5)
+	if (prng() < 0.5)
 		return hunting.call(this);
 	if (level[this.x][this.y].visible) {
 		this.goal = {
@@ -232,7 +350,7 @@ var batHunting = function() {
 	for (var i = 0; i < 8; i++) {
 		var dx = rlt.dir8[i][0];
 		var dy = rlt.dir8[i][1];
-		var newdist = Math.random();
+		var newdist = prng();
 		var tile = level[this.x+dx][this.y+dy];
 		if (tile.passable && (!tile.actor || tile.actor === player) && newdist < dist) {
 			dist = newdist;
@@ -299,14 +417,14 @@ var drunkHunting = function() {
 		};
 	}
 	var mx = 0, my = 0;
-	var dist = distance(this.x-this.goal.x, this.y-this.goal.y)+3*Math.random();
+	var dist = distance(this.x-this.goal.x, this.y-this.goal.y)+3*prng();
 	for (var i = 0; i < 8; i++) {
 		var dx = rlt.dir8[i][0];
 		var dy = rlt.dir8[i][1];
 		var newdist = distance(this.x+dx-this.goal.x, this.y+dy-this.goal.y);
 		var tile = level[this.x+dx][this.y+dy];
 		if (tile.passable && (!tile.actor || tile.actor === player) &&
-			newdist + 3 * Math.random() < dist) {
+			newdist + 3 * prng() < dist) {
 			dist = newdist;
 			mx = dx;
 			my = dy;
@@ -331,6 +449,13 @@ var batHaunt = function() {
 		};
 		getById('blinded').style.display = 'block';
 	}
+};
+
+var dwarfHaunt = function() {
+	this.dead = true;
+	level[this.x][this.y].actor = undefined;
+	player.confused = 6;
+	getById('confused').style.display = 'block';
 };
 
 var flee = function(x, y) {
@@ -363,7 +488,7 @@ var attack = function(actor) {
 	} else if (actor === player) {
 		log('The ' + this.name + ' ' + type + 's you. ');
 	}
-	schedule.add(this, this.delay);
+	schedule.add(this, this.attackDelay);
 	return schedule.advance().act();
 };
 
@@ -375,11 +500,11 @@ var rangedAttack = function(actor) {
 			return this.flee(player.x, player.y);
 		}
 	}
-	var heuristic = Math.random();
+	var heuristic = prng();
 	var x = actor.x;
 	var y = actor.y;
 	for (var i = 0; i < 9; i++) {
-		var newHeuristic = Math.random();
+		var newHeuristic = prng();
 		var newx = actor.x + rlt.dir9[i][0];
 		var newy = actor.y + rlt.dir9[i][1];
 		if (level[newx][newy].passable &&
@@ -443,7 +568,7 @@ var rangedAttack = function(actor) {
 			log('The ' + this.name + ' misses you. ');
 		}
 	}
-	schedule.add(this, this.delay);
+	schedule.add(this, this.attackDelay);
 	return schedule.advance().act();
 };
 
@@ -506,25 +631,61 @@ var exitDoor = function(dx, dy) {
 		level[this.x][this.y].room = room;
 		this.enterDoor = enterCorridor;
 		// destroy past stuff
-		var oldCurrentRoom;
+		var oldCurrentRoom = currentRoom;
 		for (var x = 0; x < display.width; x++) for (var y = 0; y < display.height; y++) {
-			if (level[x][y].room !== room) {
-				if (level[x][y].actor)
-					level[x][y].actor.haunt();
+			var tile = level[x][y];
+			if (tile.room !== room) {
+				if (tile.actor)
+					tile.actor.haunt();
 				if (level[x][y].room === currentRoom)
 					currentRoom = room;
 				level[x][y] = newTile('empty');
 			}
 		}
 		if (currentRoom !== oldCurrentRoom) {
-			progress++;
+			if (player.hasGoal)
+				progress--;
+			else
+				progress++;
 			getById('progress').innerHTML = progress;
+			updateDiscovered();
+		}
+		if (player.hasGoal && progress === 0) {
+			player.enterDoor = enterOutside;
 		}
 	}
 };
 
+var exitDungeon = function() {
+	player.enterDoor = blank;
+	player.exitDoor = blank;
+	log('You escape the dungeon, the ' + THIS + ' of ' + THAT + ' in hand. ' + seed);
+}
+
 var enterRoom = function() {
-	addMonsters(level[this.x][this.y].room);
+	if (progress >= 11 && !player.hasGoal) {
+		var room = level[this.x][this.y].room;
+		var dist = 0;
+		var bestx = 0;
+		var besty = 0;
+		for (var x = room.x + 1; x < room.x + room.w - 1; x++) {
+			for (var y = room.y + 1; y < room.y + room.h - 1; y++) {
+				var newDist = distance(this.x-x, this.y-y);
+				if (newDist > dist) {
+					dist = newDist;
+					bestx = x;
+					besty = y;
+				}
+			}
+		}
+		level[bestx][besty].actor = goal;
+		goal.x = bestx;
+		goal.y = besty;
+	} else if (player.hasGoal && progress === 1) {
+		// yay
+	} else {
+		addMonsters(level[this.x][this.y].room);
+	}
 };
 
 var enterCorridor = function() {
@@ -553,20 +714,20 @@ var enterCorridor = function() {
 		right: 'horizontal'
 	};
 	// make a new room and add monsters
-	var width = rlt.random(6, 9, Math.random);
-	var height = rlt.random(6, 9, Math.random);
+	var width = rlt.random(6, 9, prng);
+	var height = rlt.random(6, 9, prng);
 	if (facing === 'bottom') {
-		var xpos = rlt.random(0, display.width-width, Math.random);
-		var ypos = rlt.random(this.y+2, display.height-height, Math.random);
+		var xpos = rlt.random(0, display.width-width, prng);
+		var ypos = rlt.random(this.y+2, display.height-height, prng);
 	} else if (facing === 'top') {
-		var xpos = rlt.random(0, display.width-width, Math.random);
-		var ypos = rlt.random(0, this.y-height-1, Math.random);
+		var xpos = rlt.random(0, display.width-width, prng);
+		var ypos = rlt.random(0, this.y-height-1, prng);
 	} else if (facing === 'right') {
-		var xpos = rlt.random(this.x+2, display.width-width, Math.random);
-		var ypos = rlt.random(0, display.height-height, Math.random);
+		var xpos = rlt.random(this.x+2, display.width-width, prng);
+		var ypos = rlt.random(0, display.height-height, prng);
 	} else {
-		var xpos = rlt.random(0, this.x-width-1, Math.random);
-		var ypos = rlt.random(0, display.height-height, Math.random);
+		var xpos = rlt.random(0, this.x-width-1, prng);
+		var ypos = rlt.random(0, display.height-height, prng);
 	}
 	makeRoom(xpos, ypos, width, height);
 	// add doors
@@ -581,10 +742,27 @@ var enterCorridor = function() {
 	makeCorridor(this, doors[opposite[facing]], orientation[facing]);
 };
 
+var enterOutside = function() {
+	player.exitDoor = exitDungeon;
+	var room = level[this.x][this.y].room;
+	for (var x = 0; x < display.width; x++) for (var y = 0; y < display.height; y++) {
+		if (level[x][y].char === ' ') {
+			if (x === 0 || y === 0 || x === display.width-1 || y === display.height-1) {
+				level[x][y] = newTile('edge');
+			} else {
+				if (prng() < 2/3) level[x][y] = newTile('grass');
+				else if (prng() < 2/3) level[x][y] = newTile('bush');
+				else level[x][y] = newTile('tree');
+			}
+		}
+	}
+}
+
 var asActor = function(obj) {
 	var actor = Object.create({
 		color: 'blind',
 		delay: 100,
+		attackDelay: 100,
 		state: 'sleeping',
 		act: act,
 		move: move,
@@ -600,7 +778,7 @@ var asActor = function(obj) {
 		dmg: 1,
 		chance: 0,
 		distribution: function() {
-			return Math.random() < this.chance;
+			return prng() < this.chance;
 		}
 	});
 	for (var prop in obj) {
@@ -646,8 +824,9 @@ player.act = function() {
 	draw();
 	animate();
 	running:if (this.running) {
-		if (visibleActorCount() > 1) {
+		if (visibleActorCount() > 1 || this.stopRunning) {
 			this.running = false;
+			this.stopRunning = false;
 			break running;
 		}
 		var dx = this.running.x;
@@ -673,6 +852,19 @@ player.act = function() {
 		}
 		requestAnimationFrame(this.sleep.bind(this, false));
 	}
+	if (this.slowed) {
+		this.slowed--;
+		if (this.slowed === 0) {
+			this.delay = 100;
+			getById('slow').style.display = 'none';
+		}
+	}
+	if (this.confused) {
+		this.confused--;
+		if (this.confused === 0) {
+			getById('confused').style.display = 'none';
+		}
+	}
 };
 player.see = function() {
 	for (var x = 0; x < display.width; x++) for (var y = 0; y < display.height; y++) {
@@ -691,24 +883,36 @@ player.move = function(dx, dy) {
 		this.see();
 		schedule.add(this, this.delay);
 		return schedule.advance().act();
-	} else if (level[this.x+dx][this.y+dy].actor) {
-		this.see();
-		return this.attack(level[this.x+dx][this.y+dy].actor);
-	} else if (level[this.x+dx][this.y+dy].passable) {
-		level[this.x][this.y].actor = undefined;
-		if (level[this.x][this.y].char === '+' ||
-			level[this.x][this.y].char === '/') {
-			this.exitDoor(dx, dy);
+	} else {
+		if (this.confused && prng() < 0.5) {
+			if (dx === 0)
+				dx = prng() < 0.5 ? -1 : 1;
+			else if (dy === 0)
+				dy = prng() < 0.5 ? -1 : 1;
+			else if (prng() < 0.5)
+				dx = 0;
+			else
+				dy = 0;
 		}
-		this.x += dx;
-		this.y += dy;
-		level[this.x][this.y].actor = this;
-		if (level[this.x][this.y].char === '+') {
-			this.enterDoor();
+		if (level[this.x+dx][this.y+dy].actor) {
+			this.see();
+			return this.attack(level[this.x+dx][this.y+dy].actor);
+		} else if (level[this.x+dx][this.y+dy].passable) {
+			level[this.x][this.y].actor = undefined;
+			if (level[this.x][this.y].char === '+' ||
+				level[this.x][this.y].char === '/') {
+				this.exitDoor(dx, dy);
+			}
+			this.x += dx;
+			this.y += dy;
+			level[this.x][this.y].actor = this;
+			if (level[this.x][this.y].char === '+') {
+				this.enterDoor();
+			}
+			this.see();
+			schedule.add(this, this.delay);
+			return schedule.advance().act();
 		}
-		this.see();
-		schedule.add(this, this.delay);
-		return schedule.advance().act();
 	}
 };
 player.run = function(dx, dy, newdx, newdy) {
@@ -740,8 +944,34 @@ player.die = function() {
 	draw();
 	window.removeEventListener('keydown', gameKeydown);
 	window.removeEventListener('keyup', gameKeyup);
-	animationQueue.push(lateLog.bind(null, 'You die... '));
+	window.addEventListener('keydown', deadKeydown, false);
+	animationQueue.push(lateLog.bind(null, 'You die... <br>Press Space to restart. '));
 };
+
+// the quest itme
+var goal = {
+	name: 'the ' + THIS + ' of ' + THAT,
+	char: '±',
+	color: 'blind',
+	description: 'the ' + THIS + ' of ' + THAT,
+	gainHp: function() {
+		level[this.x][this.y].actor = player;
+		level[player.x][player.y].actor = undefined;
+		player.x = this.x;
+		player.y = this.y;
+		player.hp = 12;
+		player.dmg = 2;
+		getById('hp').innerHTML = player.hp;
+		player.hasGoal = true;
+		return 'pick up';
+	},
+	haunt: function() {
+		console.log([this.x, this.y]);
+	}
+};
+
+// number of molds to add next room
+var molds = 0;
 
 var monsters = {
 	archer: asActor({
@@ -750,7 +980,7 @@ var monsters = {
 		description: 'An archer that can shoot you from afar. ',
 		attack: rangedAttack,
 		hunting: rangedHunting,
-		chance: 0.5
+		attackDelay: 200
 	}),
 	bat: asActor({ // haunt restricts player's fov
 		name: 'bat',
@@ -758,8 +988,7 @@ var monsters = {
 		color: 'newpoop',
 		hunting: batHunting,
 		haunt: batHaunt,
-		description: 'A bat. Haunt: restricts vision for 6 turns. ',
-		chance: 0.5
+		description: 'A bat. Haunt: restricts vision for 6 turns. '
 	}),
 	giant: asActor({
 		name: 'giant',
@@ -768,9 +997,8 @@ var monsters = {
 		dmg: 2,
 		hp: 5,
 		maxHp: 5,
-		delay: 200,
+		attackDelay: 200,
 		description: 'A giant. When it dies, you gain 6 health. ',
-		chance: 0.5,
 		die: function() {
 			player.gainHp(6);
 			this.dead = true;
@@ -791,32 +1019,62 @@ var monsters = {
 		name: 'ogre',
 		char: 'O',
 		color: 'zornskin',
-		delay: 200,
+		attackDelay: 200,
 		dmg: 2,
 		hp: 5,
 		maxHp: 5,
 		hunting: lateHunting,
+		haunt: function() {
+			this.dead = true;
+			level[this.x][this.y].actor = undefined;
+			player.slowed = 4;
+			player.delay = 200;
+			getById('slow').style.display = 'block';
+		},
 		description: 'A ogre. It aims for the space you were in last turn. ',
 		chance: 0.5
 	}),
 	dwarf: asActor({
 		name: 'dwarf',
 		char: 'd',
+		color: 'blaze',
 		hunting: drunkHunting,
+		haunt: dwarfHaunt,
 		description: 'A drunk dwarf. Haunt: you are confused. ',
 		chance: 1
+	}),
+	mold: asActor({
+		name: 'mold',
+		char: 'm',
+		sleeping: moldSleeping,
+		die: function() {
+			this.dead = true;
+			level[this.x][this.y].actor = undefined;
+			molds--;
+		},
+		description: 'An immobile mold. Haunt: spawn 2 molds in the next room. '
 	})
 };
 var undiscovered = [
 	'bat',
 	'giant',
 	'archer',
+	'mold',
 	'dwarf',
 	'ogre'
 ];
 var discovered = [];
 var currentRoom;
 var progress = 0;
+
+var updateDiscovered = function() {
+	if (discovered.length === 0 || undiscovered.length > 1 && prng() < 2/3) {
+		var index = Math.round(prng() * 5/6);
+		discovered.push(undiscovered.splice(index, 1)[0]);
+	} else if (undiscovered.length === 1) {
+		discovered.push(undiscovered.pop());
+	}
+};
 
 // maps from character to sprite location
 var char2spriteX = {
@@ -910,7 +1168,7 @@ var makeCorridor = function(a, b, type) {
 		var temp = a;
 		a = a.y < b.y ? a : b;
 		b = temp.y >= b.y ? temp : b;
-		var ymid = rlt.random(a.y+1, b.y-1, Math.random);
+		var ymid = rlt.random(a.y+1, b.y-1, prng);
 		for (var y = a.y+1; y < ymid; y++) {
 			level[a.x][y] = newTile('corridor');
 		}
@@ -926,7 +1184,7 @@ var makeCorridor = function(a, b, type) {
 		var temp = a;
 		a = a.x < b.x ? a : b;
 		b = temp.x >= b.x ? temp : b;
-		var xmid = rlt.random(a.x+1, b.x-1, Math.random);
+		var xmid = rlt.random(a.x+1, b.x-1, prng);
 		for (var x = a.x+1; x < xmid; x++) {
 			level[x][a.y] = newTile('corridor');
 		}
@@ -953,24 +1211,24 @@ var addDoors = function(x, y, w, h, chance) {
 	chance.bottom = chance.bottom || 0;
 	chance.left   = chance.left   || 0;
 	for (var dx = 1; dx < w-1; dx++) {
-		if (!doorTop && Math.random() < chance.top * dx / (w-2)) {
+		if (!doorTop && prng() < chance.top * dx / (w-2)) {
 			level[x+dx][y] = newTile('door');
 			level[x+dx][y].room = room;
 			doorTop = {x: x+dx, y: y};
 		}
-		if (!doorBottom && Math.random() < chance.bottom * dx / (w-2)) {
+		if (!doorBottom && prng() < chance.bottom * dx / (w-2)) {
 			level[x+dx][y+h-1] = newTile('door');
 			level[x+dx][y+h-1].room = room;
 			doorBottom = {x: x+dx, y: y+h-1};
 		}
 	}
 	for (var dy = 1; dy < h-1; dy++) {
-		if (!doorLeft && Math.random() < chance.left * dy / (h-2)) {
+		if (!doorLeft && prng() < chance.left * dy / (h-2)) {
 			level[x][y+dy] = newTile('door');
 			level[x][y+dy].room = room;
 			doorLeft = {x: x, y: y+dy};
 		}
-		if (!doorRight && Math.random() < chance.right * dy / (h-2)) {
+		if (!doorRight && prng() < chance.right * dy / (h-2)) {
 			level[x+w-1][y+dy] = newTile('door');
 			level[x+w-1][y+dy].room = room;
 			doorRight = {x: x+w-1, y: y+dy};
@@ -985,21 +1243,46 @@ var addDoors = function(x, y, w, h, chance) {
 };
 
 var addMonsters = function(room) {
-	for (var name in monsters) {
-		var count = monsters[name].distribution();
-		for (var i = 0; i < count; i++) {
-			var x = 0;
-			var y = 0;
-			while (!level[x][y].passable || level[x][y].actor) {
-				x = rlt.random(room.x+1, room.x+room.w-1, Math.random);
-				y = rlt.random(room.y+1, room.y+room.h-1, Math.random);
-			}
-			var monster = Object.create(monsters[name]);
-			monster.x = x;
-			monster.y = y;
-			level[x][y].actor = monster;
-			schedule.add(monster, 1);
+	if (discovered.length === 0) {
+		return;
+	}
+	molds *= 2;
+	for (var i = 0; i < molds; i++) {
+		var monster = Object.create(monsters.mold);
+		var x = 0;
+		var y = 0;
+		while (!level[x][y].passable || level[x][y].actor) {
+			x = rlt.random(room.x+1, room.x+room.w-1, prng);
+			y = rlt.random(room.y+1, room.y+room.h-1, prng);
 		}
+		monster.x = x;
+		monster.y = y;
+		level[x][y].actor = monster;
+		schedule.add(monster, 1);
+	}
+	var n = prng();
+	var monsterCount;
+	if (n < 0.2) monsterCount = 3;
+	else if (n < 0.7) monsterCount = 2;
+	else if (n < 0.9) monsterCount = 1;
+	else if (player.hasGoal) monsterCount = 4;
+	else monsterCount = 0;
+	while (monsterCount--) {
+		var i = Math.floor(discovered.length * prng());
+		var monster = Object.create(monsters[discovered[i]]);
+		if (monster.name === 'mold') {
+			molds++;
+		}
+		var x = 0;
+		var y = 0;
+		while (!level[x][y].passable || level[x][y].actor) {
+			x = rlt.random(room.x+1, room.x+room.w-1, prng);
+			y = rlt.random(room.y+1, room.y+room.h-1, prng);
+		}
+		monster.x = x;
+		monster.y = y;
+		level[x][y].actor = monster;
+		schedule.add(monster, 1);
 	}
 };
 
@@ -1017,8 +1300,10 @@ var start = function() {
 		left: 1
 	});
 
-	player.x = rlt.random(27, 31, Math.random);
-	player.y = rlt.random(12, 16, Math.random);
+	updateDiscovered();
+
+	player.x = rlt.random(27, 31, prng);
+	player.y = rlt.random(12, 16, prng);
 	level[player.x][player.y].actor = player;
 
 	player.see();
@@ -1030,6 +1315,7 @@ var start = function() {
 
 // player input
 var keyCodes = {
+	'13': 'Enter',
     '27': 'Escape',
     '32': ' ',
     '37': 'ArrowLeft',
@@ -1196,6 +1482,8 @@ var directionReleased = function(mode, key, callback) {
 var gameKeydown = function(e) {
 	try {
 		player.asleep = 0;
+		if (player.running)
+			player.stopRunning = true;
 		var key = keyCodes[e.keyCode] || e.key;
 		var move = e.shiftKey ? player.run : player.move;
 		if (key === '%' || key === 'Z' ||
@@ -1246,6 +1534,13 @@ var titleKeydown = function() {
 };
 window.addEventListener('keydown', titleKeydown, false);
 
+var deadKeydown = function(e) {
+	var key = keyCodes[e.keyCode] || e.key;
+	if (key === 'Enter' || key === ' ') {
+		location.reload(false);
+	}
+};
+
 // descriptions
 var mouseenter = function(x, y, e) {
 	var tile = level[x][y];
@@ -1268,7 +1563,9 @@ display.element.addEventListener('mouseleave', revertLog, false);
 
 getById('blinded').addEventListener('mouseenter', tempLog.bind(null, 'Your vision is limited because of a bat haunting you. '), false);
 getById('blinded').addEventListener('mouseleave', revertLog, false);
-getById('confused').addEventListener('mouseenter', tempLog.bind(null, 'Moving sends you in random directions. '), false);
+getById('confused').addEventListener('mouseenter', tempLog.bind(null, 'You sometimes move drunkenly because of a dwarf haunting you. '), false);
 getById('confused').addEventListener('mouseleave', revertLog, false);
+getById('slow').addEventListener('mouseenter', tempLog.bind(null, 'You move twice as slowly because of an ogre haunting you. '), false);
+getById('slow').addEventListener('mouseleave', revertLog, false);
 
 start();

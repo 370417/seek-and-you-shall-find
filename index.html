@@ -27,10 +27,17 @@
             }
             @keyframes damagedzornskin {
                 from { color: #BE2633; }
-                to { color: #A3CE27; }
+                to { color: #F7E26B; }
             }
             .damagedzornskin {
                 animation: 0.667s damagedzornskin;
+            }
+            @keyframes damagedblaze {
+                from { color: #BE2633; }
+                to { color: #EB8931; }
+            }
+            .damagedblaze {
+                animation: 0.667s damagedblaze;
             }
             body {
                 background: #1B2632;
@@ -71,12 +78,15 @@
                 float: right;
             }
             #blinded {
-                color: #FFFFFF;
+                color: #A46422;
             }
             .buff {
                 display: none;
             }
             #confused {
+                color: #EB8931;
+            }
+            #slow {
                 color: #F7E26B;
             }
             .age0, .age1 {
@@ -109,9 +119,13 @@
             }
             #buffer {
                 white-space: normal;
+                background: rgba(27,38,50,0.5);
             }
             #buffer:hover {
                 color: white;
+            }
+            .this, .that {
+                color: #B2DCEF;
             }
         </style>
     </head>
@@ -119,26 +133,29 @@
         <div id="game"><div id="title">Seek and you shall find
 
 
-          Dreams filled with fantastical creatures
-          and endless passageways.
-
-          Monsters lie in wait before you,
-          and haunt you from behind. 
-
-          Despite this, a morbid curiosity
-          drives you to explore this maze. 
-
-          Death only brings wakefulness,
-          but success will reveal the key to your mind.
+          the <span class="this">THIS</span> of <span class="that">THAT</span>
 
 
-                                       Press any key to play
-(url?k=key)
-        </div><div id="buffer" class="age0">Press <span id="helpbutton" class="pointer" onclick="helpClick()">[?]</span> for help.</div><div id="display"></div><div><div id="stats">Health: <span id="hp">12</span>/12  Progress: <span id="progress">0</span>/12</div><div id="buffs"><span id="blinded" class="buff"> Blinded</span><span id="confused" class="buff"> Confused</span></div></div><div id="help">Controls
+                                      Press any key to begin
 
-Arrow keys or numpad to move. You can hold down two arrow keys at once to move diagonally. Numlock needs to be off. 
+        </div><div id="buffer" class="age0">Press <span id="helpbutton" class="pointer" onclick="helpClick()">[?]</span> for help.</div><div id="display"></div><div><div id="stats">Health: <span id="hp">12</span>/12  Rooms: <span id="progress">0</span>/12</div><div id="buffs"><span id="blinded" class="buff"> Blind</span><span id="confused" class="buff"> Drunk</span><span id="slow" class="buff"> Slow</span></div></div><div id="help">You are searching for the <span class="this">THIS</span> of <span class="that">THAT</span> (± in game).
 
-Press Escape or [?] to return to the game.</div></div>
+Controls
+
+Use the arrow keys or numpad (numlock off) to move. You can hold down two arrow keys at once to move diagonally. 
+
+Bump into enemies to attack them.
+
+You can use the shift key and a direction to run through corridors. 
+
+Mouseover most things to get a description of them at the top of the screen.
+"Haunt:" describes the consequence of running away from a monster.
+
+Press Escape or [?] to return to the game.
+
+
+You can specify a seed before starting a game by appending ?s=seed to the url, where the seed is an integer. </div></div>
+        <script src="mersenne-twister.js"></script>
         <script src="rlt.min.js"></script>
         <script src="script.js"></script>
     </body>
